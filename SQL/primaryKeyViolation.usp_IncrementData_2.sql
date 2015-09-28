@@ -4,7 +4,7 @@ begin
 	exec('create schema [primaryKeyViolation]  authorization [dbo]')
 
 end
-
+go
 
 if OBJECT_ID('[primaryKeyViolation].[usp_IncrementData_2]') IS NULL
 begin
