@@ -5,7 +5,7 @@ begin
 
 end
 
-/* First shot */
+go
 
 if OBJECT_ID('[primaryKeyViolation].[usp_IncrementData]') IS NOT NULL
 begin
