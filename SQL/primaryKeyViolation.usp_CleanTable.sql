@@ -1,8 +1,3 @@
-
-use [DBLAB]
-go
-
-
 if schema_id('primaryKeyViolation') is null
 begin
 
