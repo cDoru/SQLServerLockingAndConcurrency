@@ -4,15 +4,6 @@ begin
 	exec('create schema [primaryKeyViolation]  authorization [dbo]')
 
 end
-
-/* First shot */
-
-if OBJECT_ID('[primaryKeyViolation].[usp_IncrementData]') IS NOT NULL
-begin
-
-	drop proc [primaryKeyViolation].[usp_IncrementData]
-
-end
 go
 
 if OBJECT_ID('[primaryKeyViolation].[usp_CleanTable]') IS NULL
