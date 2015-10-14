@@ -6,6 +6,7 @@ using System.Data.SqlClient;
 using System.Configuration;
 using System.Threading;
 using System.Diagnostics;
+using System.Transactions;
 
 namespace ConsoleApplication1
 {
@@ -18,6 +19,9 @@ namespace ConsoleApplication1
 		//static string strDBConnectionString = null;
 		
 		static String METHOD_DEFAULT = "4";
+		static String APPLICATION_NAME_DEFAULT = "SQLServerLockingAndConcurrency";
+
+		
 		static String sqlCleanTable = @"[primaryKeyViolation].[usp_CleanTable]";
 		static String sqlAddData = @"[primaryKeyViolation].[usp_IncrementData_Base]";
 		static String sqlSummary = @"select [primaryKeyViolation].[ufn_getCounterSum]()";
@@ -34,9 +38,16 @@ namespace ConsoleApplication1
 		
 		static String FORMAT_METHOD_ATTEMPTED =
 						"Method Attempted {0}";
-		
+
+		static String FORMAT_TRANSACTION_ISOLATION_LEVEL =
+						"Transaction Isolation Level {0}";
+
+						
 		static string strDBServer = null;		
-		static string strDBInitialCatalog = null;				
+		static string strDBInitialCatalog = null;	
+		static string strApplicationName = null;
+		static string strTransactionIsolation = null;
+		
 		static int    iMethod = 0;
 		static int    iNumberofIterations =0;
 		static int    iNumberofIterationsAttempted =0;
@@ -47,7 +58,18 @@ namespace ConsoleApplication1
 
 		static DateTime localDateStarted;
 		static DateTime localDateCompleted;
-		
+
+		public enum TransactionIsolationLiteral
+		{
+			  Unspecified = IsolationLevel.Unspecified
+			, ReadCommitted = IsolationLevel.ReadCommitted
+			, ReadUncommitted = IsolationLevel.ReadUncommitted
+			, RepeatableRead = IsolationLevel.RepeatableRead
+			, Serializable = IsolationLevel.Serializable
+		}
+
+		static IsolationLevel iTransactionIsolation = IsolationLevel.Serializable;
+			
 		static void Main(string[] args)
 		{
 			SqlConnectionStringBuilder cs = new SqlConnectionStringBuilder();
@@ -59,6 +81,8 @@ namespace ConsoleApplication1
 
 				cs.DataSource = strDBServer;
 				cs.InitialCatalog = strDBInitialCatalog;
+				cs.ApplicationName = strApplicationName;
+				
 
 				cs.IntegratedSecurity = true;
 				cs.AsynchronousProcessing = true;
@@ -85,7 +109,23 @@ namespace ConsoleApplication1
 					cmd.CommandType = System.Data.CommandType.StoredProcedure;
 					cmd.Parameters.Add("@method", System.Data.SqlDbType.Int).Value = iMethod;					
 					cmd.Parameters.Add("@id", System.Data.SqlDbType.Int).Value = i / 10;
-					cmd.BeginExecuteNonQuery(new AsyncCallback(EndExecution), cmd);
+					
+					if (iTransactionIsolation.Equals(TransactionIsolationLiteral.Unspecified))
+					{
+						
+						cmd.BeginExecuteNonQuery(new AsyncCallback(EndExecution), cmd);
+			
+					}
+					else
+					{
+						
+						using (	new TransactionScope(TransactionScopeOption.RequiresNew, new TransactionOptions{IsolationLevel = iTransactionIsolation}))
+						{
+							cmd.BeginExecuteNonQuery(new AsyncCallback(EndExecution), cmd);
+						}
+						
+					}			
+					
 				}
 
 				/*
@@ -138,6 +178,8 @@ namespace ConsoleApplication1
 				Interlocked.Increment(ref counter);
 				
 				Console.WriteLine(ex.Message);
+				
+				Console.WriteLine(FORMAT_TRANSACTION_ISOLATION_LEVEL, iTransactionIsolation);
 				//#endif
 			}
 			finally
@@ -176,6 +218,47 @@ namespace ConsoleApplication1
 			strDBServer	= ConfigurationManager.AppSettings["DBServer"];
 			strDBInitialCatalog	= ConfigurationManager.AppSettings["DBInitialCatalog"];
 			
+			strApplicationName = ConfigurationManager.AppSettings["ApplicationName"];
+			
+			/*
+				How do I get the name of the current executable in C#?
+				http://stackoverflow.com/questions/616584/how-do-i-get-the-name-of-the-current-executable-in-c
+			*/
+			if (strApplicationName == null)
+			{
+				strApplicationName = Process.GetCurrentProcess().ProcessName;
+			}
+
+			if (strApplicationName == null)
+			{
+				strApplicationName = APPLICATION_NAME_DEFAULT;
+			}
+
+			strTransactionIsolation = ConfigurationManager.AppSettings["TransactionIsolation"];
+			
+
+			
+			if (String.Compare(strTransactionIsolation, TransactionIsolationLiteral.ReadCommitted.ToString()) == 0)
+			{
+				iTransactionIsolation = IsolationLevel.ReadCommitted;
+			}
+			else if (String.Compare(strTransactionIsolation, TransactionIsolationLiteral.ReadUncommitted.ToString()) == 0)
+			{
+				iTransactionIsolation = IsolationLevel.ReadUncommitted;
+			}
+			else if (String.Compare(strTransactionIsolation, TransactionIsolationLiteral.RepeatableRead.ToString()) == 0)
+			{
+				iTransactionIsolation = IsolationLevel.RepeatableRead;
+			}
+			else if (String.Compare(strTransactionIsolation, TransactionIsolationLiteral.Serializable.ToString()) == 0)
+			{
+				iTransactionIsolation = IsolationLevel.Serializable;
+			}
+			else
+			{
+				iTransactionIsolation = IsolationLevel.Unspecified;
+			}
+			
 			Console.WriteLine("DB Server {0} ", strDBServer);
 			Console.WriteLine("DB Initial Catalog {0} ", strDBInitialCatalog);
 			Console.WriteLine("Method {0} ", strMethod);		
@@ -206,6 +289,7 @@ namespace ConsoleApplication1
 			cmdSummary = new SqlCommand(sqlSummary, connSummary);
 			
 			objSummary = cmdSummary.ExecuteScalar();
+
 			
 			connSummary.Close();	
 
@@ -267,8 +351,5 @@ namespace ConsoleApplication1
 		}
 		
 	} 
-	
-	
-	
-	
+
 }
