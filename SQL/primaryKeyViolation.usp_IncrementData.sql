@@ -29,6 +29,9 @@ alter procedure [primaryKeyViolation].[usp_IncrementData_Base]
 as
 begin
 
+	SET NOCOUNT ON;
+	SET XACT_ABORT ON;
+
 	if (@method =1)
 	begin
 
