@@ -68,6 +68,13 @@ begin
 		exec [primaryKeyViolation].[usp_IncrementData_6] @id
 
 	end
+	
+	else if (@method =101)
+	begin
+
+		exec [primaryKeyViolation].[usp_IncrementData_101] @id
+
+	end
 
 end
 go
